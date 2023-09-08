@@ -740,6 +740,7 @@ def sqrt_matrix(density_matrix):
         # broadcasting case
         i = qml.math.cast_like(qml.math.convert_like(qml.math.eye(shape[-1]), evs), evs)
         sqrt_evs = qml.math.expand_dims(qml.math.sqrt(evs), 1) * i
+        sqrt_evs = qml.math.cast_like(sqrt_evs, vecs)
         return vecs @ sqrt_evs @ qml.math.conj(qml.math.transpose(vecs, (0, 2, 1)))
 
     return vecs @ qml.math.diag(qml.math.sqrt(evs)) @ qml.math.conj(qml.math.transpose(vecs))
