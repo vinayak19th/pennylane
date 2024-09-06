@@ -21,28 +21,27 @@ from packaging.version import Version
 
 try:
     import tensorflow as tf
-    from tensorflow.keras.layers import Layer
+    from keras.layers import Layer
+    import keras
 
-    CORRECT_TF_VERSION = Version(tf.__version__) >= Version("2.0.0")
     try:
         # this feels a bit hacky, but if users *only* have an old (i.e. PL-compatible) version of Keras installed
         # then tf.keras doesn't have a version attribute, and we *should be* good to go.
         # if you have a newer version of Keras installed, then you can use tf.keras.version to check if you
         # are configured to use Keras 3 or Keras 2
-        CORRECT_KERAS_VERSION = Version(tf.keras.version()) < Version("3.0.0pennylane/qnn/keras.py")
+        CORRECT_KERAS_VERSION = Version(keras.version()) >= Version("3.0.0")
     except AttributeError:
         CORRECT_KERAS_VERSION = True
 
 except ImportError:
     # The following allows this module to be imported even if TensorFlow is not installed. Users
-    # will instead see an ImportError when instantiating the KerasLayer.
+    # will instead see an ImportError when instantiating the Keras3Layer.
     from abc import ABC
 
     Layer = ABC
-    CORRECT_TF_VERSION = False
 
 
-class KerasLayer(Layer):
+class Keras3Layer(Layer):
     """Converts a :class:`~.QNode` to a Keras
     `Layer <https://www.tensorflow.org/api_docs/python/tf/keras/layers/Layer>`__.
 
@@ -53,10 +52,7 @@ class KerasLayer(Layer):
 
     .. note::
 
-        ``KerasLayer`` currently only supports Keras 2. If you are running the newest version
-        of TensorFlow and Keras, you may automatically be using Keras 3. For instructions
-        on running with Keras 2, instead, see the
-        `documentation on backwards compatibility <https://keras.io/getting_started/#tensorflow--keras-2-backwards-compatibility>`__ .
+        ``Keras3Layer`` is experimental and only works for Keras 3. Use `KerasLayer` for Keras 2. 
 
     Args:
         qnode (qml.QNode): the PennyLane QNode to be converted into a Keras Layer_
@@ -94,10 +90,10 @@ class KerasLayer(Layer):
     Layer_ with:
 
     >>> weight_shapes = {"weights_0": 3, "weight_1": 1}
-    >>> qlayer = qml.qnn.KerasLayer(qnode, weight_shapes, output_dim=2)
+    >>> qlayer = qml.qnn.Keras3Layer(qnode, weight_shapes, output_dim=2)
 
     The internal weights of the QNode are automatically initialized within the
-    :class:`~.KerasLayer` and must have their shapes specified in a ``weight_shapes`` dictionary.
+    :class:`~.Keras3Layer` and must have their shapes specified in a ``weight_shapes`` dictionary.
     It is then easy to combine with other neural network layers from the
     `tensorflow.keras.layers <https://www.tensorflow.org/api_docs/python/tf/keras/layers>`__ module
     and create a hybrid:
@@ -123,7 +119,7 @@ class KerasLayer(Layer):
 
         **Output shape**
 
-        If the QNode returns a single measurement, then the output of the ``KerasLayer`` will have
+        If the QNode returns a single measurement, then the output of the ``Keras3Layer`` will have
         shape ``(batch_dim, *measurement_shape)``, where ``measurement_shape`` is the output shape
         of the measurement:
 
@@ -142,7 +138,7 @@ class KerasLayer(Layer):
                     return [qml.apply(m) for m in measurements]
 
                 weight_shapes = {"weights": (3, n_qubits, 3)}
-                qlayer = qml.qnn.KerasLayer(qnode, weight_shapes, output_dim=None)
+                qlayer = qml.qnn.Keras3Layer(qnode, weight_shapes, output_dim=None)
 
                 batch_dim = 5
                 x = tf.zeros((batch_dim, n_qubits))
@@ -165,7 +161,7 @@ class KerasLayer(Layer):
 
         **Initializing weights**
 
-        The optional ``weight_specs`` argument of :class:`~.KerasLayer` allows for a more
+        The optional ``weight_specs`` argument of :class:`~.Keras3Layer` allows for a more
         fine-grained specification of the QNode weights, such as the method of initialization and
         any regularization or constraints. For example, the initialization method of the ``weights``
         argument in the example above could be specified by:
@@ -187,13 +183,13 @@ class KerasLayer(Layer):
 
         **Model saving**
 
-        The weights of models that contain ``KerasLayers`` can be saved using the usual
+        The weights of models that contain ``Keras3Layers`` can be saved using the usual
         ``tf.keras.Model.save_weights`` method:
 
         .. code-block::
 
             clayer = tf.keras.layers.Dense(2, input_shape=(2,))
-            qlayer = qml.qnn.KerasLayer(qnode, weight_shapes, output_dim=2)
+            qlayer = qml.qnn.Keras3Layer(qnode, weight_shapes, output_dim=2)
             model = tf.keras.Sequential([clayer, qlayer])
             model.save_weights(SAVE_PATH)
 
@@ -203,18 +199,18 @@ class KerasLayer(Layer):
         .. code-block::
 
             clayer = tf.keras.layers.Dense(2, input_shape=(2,))
-            qlayer = qml.qnn.KerasLayer(qnode, weight_shapes, output_dim=2)
+            qlayer = qml.qnn.Keras3Layer(qnode, weight_shapes, output_dim=2)
             model = tf.keras.Sequential([clayer, qlayer])
             model.load_weights(SAVE_PATH)
 
-        Models containing ``KerasLayer`` objects can also be saved directly using
+        Models containing ``Keras3Layer`` objects can also be saved directly using
         ``tf.keras.Model.save``. This method also saves the model architecture, weights,
         and training configuration, including the optimizer state:
 
         .. code-block::
 
             clayer = tf.keras.layers.Dense(2, input_shape=(2,))
-            qlayer = qml.qnn.KerasLayer(qnode, weight_shapes, output_dim=2)
+            qlayer = qml.qnn.Keras3Layer(qnode, weight_shapes, output_dim=2)
             model = tf.keras.Sequential([clayer, qlayer])
             model.save(SAVE_PATH)
 
@@ -226,7 +222,7 @@ class KerasLayer(Layer):
 
         .. note::
 
-            Currently ``KerasLayer`` objects cannot be saved in the ``HDF5`` file format. In order
+            Currently ``Keras3Layer`` objects cannot be saved in the ``HDF5`` file format. In order
             to save a model using the latter method above, the ``SavedModel`` file format (default
             in TensorFlow 2.x) should be used.
 
@@ -255,7 +251,7 @@ class KerasLayer(Layer):
 
             weight_shapes = {"weights": (3, n_qubits, 3)}
 
-            qlayer = qml.qnn.KerasLayer(qnode, weight_shapes, output_dim=2)
+            qlayer = qml.qnn.Keras3Layer(qnode, weight_shapes, output_dim=2)
             clayer1 = tf.keras.layers.Dense(2)
             clayer2 = tf.keras.layers.Dense(2, activation="softmax")
             model = tf.keras.models.Sequential([clayer1, qlayer, clayer2])
@@ -309,22 +305,15 @@ class KerasLayer(Layer):
         **kwargs,
     ):
         # pylint: disable=too-many-arguments
-        if not CORRECT_TF_VERSION:
-            raise ImportError(
-                "KerasLayer requires TensorFlow version 2 or above. The latest "
-                "version of TensorFlow can be installed using:\n"
-                "pip install tensorflow --upgrade\nAlternatively, visit "
-                "https://www.tensorflow.org/install for detailed instructions."
-            )
-
         if not CORRECT_KERAS_VERSION:
             raise ImportError(
-                "KerasLayer requires a Keras version lower than 3. For instructions on running with Keras 2,"
-                "visit https://keras.io/getting_started/#tensorflow--keras-2-backwards-compatibility."
+                "Keras3Layer requires a Keras version 3. For instructions on running with Keras 2,"
+                "visit https://docs.pennylane.ai/en/stable/code/api/pennylane.qnn.KerasLayer.html"
             )
 
         self.weight_shapes = {
-            weight: (tuple(size) if isinstance(size, Iterable) else (size,) if size > 1 else ())
+            weight: (tuple(size) if isinstance(size, Iterable)
+                     else (size,) if size > 1 else ())
             for weight, size in weight_shapes.items()
         }
 
@@ -337,8 +326,11 @@ class KerasLayer(Layer):
             "tensorflow",
             "tensorflow-autograph",
             "tf-autograph",
+            "torch",
+            "pytorch"
         ):
-            raise ValueError(f"Invalid interface '{self.qnode.interface}' for KerasLayer")
+            raise ValueError(
+                f"Invalid interface '{self.qnode.interface}' for Keras3Layer")
 
         # Allows output_dim to be specified as an int or as a tuple, e.g, 5, (5,), (5, 2), [5, 2]
         # Note: Single digit values will be considered an int and multiple as a tuple, e.g [5,] or (5,)
@@ -346,7 +338,8 @@ class KerasLayer(Layer):
         if isinstance(output_dim, Iterable) and len(output_dim) > 1:
             self.output_dim = tuple(output_dim)
         else:
-            self.output_dim = output_dim[0] if isinstance(output_dim, Iterable) else output_dim
+            self.output_dim = output_dim[0] if isinstance(
+                output_dim, Iterable) else output_dim
 
         self.weight_specs = weight_specs if weight_specs is not None else {}
 
@@ -375,11 +368,13 @@ class KerasLayer(Layer):
         param_kinds = [p.kind for p in sig.values()]
 
         if inspect.Parameter.VAR_POSITIONAL in param_kinds:
-            raise TypeError("Cannot have a variable number of positional arguments")
+            raise TypeError(
+                "Cannot have a variable number of positional arguments")
 
         if inspect.Parameter.VAR_KEYWORD not in param_kinds:
             if set(weight_shapes.keys()) | {self.input_arg} != set(sig.keys()):
-                raise ValueError("Must specify a shape for every non-input parameter in the QNode")
+                raise ValueError(
+                    "Must specify a shape for every non-input parameter in the QNode")
 
     def build(self, input_shape):
         """Initializes the QNode weights.
@@ -390,7 +385,8 @@ class KerasLayer(Layer):
         """
         for weight, size in self.weight_shapes.items():
             spec = self.weight_specs.get(weight, {})
-            self.qnode_weights[weight] = self.add_weight(name=weight, shape=size, **spec)
+            self.qnode_weights[weight] = self.add_weight(
+                name=weight, shape=size, **spec)
 
         super().build(input_shape)
 
@@ -407,8 +403,8 @@ class KerasLayer(Layer):
 
         # in case the input has more than one batch dimension
         if has_batch_dim:
-            batch_dims = tf.shape(inputs)[:-1]
-            inputs = tf.reshape(inputs, (-1, inputs.shape[-1]))
+            batch_dims = keras.ops.shape(inputs)[:-1]
+            inputs = keras.ops.reshape(inputs, (-1, inputs.shape[-1]))
 
         # calculate the forward pass as usual
         results = self._evaluate_qnode(inputs)
@@ -416,8 +412,9 @@ class KerasLayer(Layer):
         # reshape to the correct number of batch dims
         if has_batch_dim:
             # pylint:disable=unexpected-keyword-arg,no-value-for-parameter
-            new_shape = tf.concat([batch_dims, tf.shape(results)[1:]], axis=0)
-            results = tf.reshape(results, new_shape)
+            new_shape = keras.ops.concat(
+                [batch_dims, keras.ops.shape(results)[1:]], axis=0)
+            results = keras.ops.reshape(results, new_shape)
 
         return results
 
@@ -439,7 +436,8 @@ class KerasLayer(Layer):
         if isinstance(res, (list, tuple)):
             if len(x.shape) > 1:
                 # multi-return and batch dim case
-                res = [tf.reshape(r, (tf.shape(x)[0], tf.reduce_prod(r.shape[1:]))) for r in res]
+                res = [keras.ops.reshape(
+                    r, (keras.ops.shape(x)[0], keras.ops.prod(r.shape[1:], axis=0))) for r in res]
 
             # multi-return and no batch dim
             return tf.experimental.numpy.hstack(res)
@@ -462,7 +460,8 @@ class KerasLayer(Layer):
             tape.watch(list(self.qnode_weights.values()))
 
             inputs = args[0]
-            kwargs = {self.input_arg: inputs, **{k: 1.0 * w for k, w in self.qnode_weights.items()}}
+            kwargs = {self.input_arg: inputs, **
+                      {k: 1.0 * w for k, w in self.qnode_weights.items()}}
             self.qnode.construct((), kwargs)
 
     def __getattr__(self, item):
@@ -515,7 +514,7 @@ class KerasLayer(Layer):
         Args:
             input_name (str): Name of the input argument
         """
-        KerasLayer._input_arg = input_name
+        Keras3Layer._input_arg = input_name
 
     def get_config(self) -> dict:
         """
